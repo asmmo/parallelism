@@ -17,7 +17,7 @@ void accumulate_block(It first, It last, typename It::value_type & result, Calla
 template<typename It, typename Callable>
 typename It::value_type  parallel_accumulate(It first, It last, typename It::value_type init, Callable binaryOp)
 {
-    unsigned long const length=std::distance(first, last);
+    unsigned long const length = std::distance(first, last);
     if(!length) return init;
     unsigned long const min_per_thread = 25;
     unsigned long const max_threads =  1 + (length - 1)/min_per_thread;
