@@ -32,7 +32,7 @@ class Logger
             condVar.wait(lock, [this]{return !messagesQueue.empty();});
 
             //log to the file
-            logFile << messagesQueue.front() << std::endl;
+            logFile << messagesQueue.front() << "\n";
             messagesQueue.pop();
         }
 
@@ -41,7 +41,7 @@ class Logger
         while(exit && !messagesQueue.empty()){
 
             //log to the file
-            logFile << messagesQueue.front() << std::endl;
+            logFile << messagesQueue.front() << "\n";
             messagesQueue.pop();
         }
 
