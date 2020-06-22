@@ -1,3 +1,8 @@
+/*
+https://codereview.stackexchange.com/questions/239300/getting-a-transpose-of-a-matrix-of-size-of-nn-where-n-2m-using-multithreading
+*/
+
+
 #include<vector>
 #include<iostream>
 #include<future>
