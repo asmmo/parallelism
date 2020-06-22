@@ -1,11 +1,60 @@
+#include <thread>
 #include <iostream>
 #include <queue>
 #include <mutex>
 #include <condition_variable>
 #include <fstream>
-#include <atomic>
 #include <string>
+#include <ctime>
 using namespace std::chrono_literals;
+
+struct Helper{
+
+    static std::ofstream creatLogFile(){
+        std::ofstream logFile(getFileName());
+        if (logFile.fail()) {
+            std::cout << "Failed to open logfile. Did u give a valid "
+                         "name and Do u have the permission" << std::endl;
+            return std::move(creatLogFile());
+        }
+        return std::move(logFile);
+    }
+
+    static std::string getFileName(){
+        std::string toBeReturned;
+        std::cout << "Do you want to have a custom name for your logger (Y/N):\t";
+        char flag;
+        while(! (std::cin >> flag)){
+            std::cout << "Plz, Enter (Y/N)\t:";
+            std::cin.clear();
+        }
+        if(toupper(flag) == 'Y')
+        {
+            std::cout << "Please write a name for your logging file:\t";
+            while(! (std::cin >> toBeReturned)){
+                std::cout << "Plz, Enter a valid name:";
+                std::cin.clear();
+            }
+            toBeReturned += ".txt";
+        }
+        else {
+            time_t currentTime{};
+            time(&currentTime);
+            tm localCurrentTime{};
+            localtime_s(&localCurrentTime, &currentTime);
+            char localCurrentTimeStr[30];
+            asctime_s(localCurrentTimeStr, &localCurrentTime);
+            auto timeOnFileName = std::string{localCurrentTimeStr};
+            timeOnFileName.pop_back();
+            std::for_each(timeOnFileName.begin(), timeOnFileName.end(),
+                          [](auto &el) { if (el == ':') el = '_'; });
+            toBeReturned = "log  " + timeOnFileName + ".txt";
+        }
+        return toBeReturned;
+    }
+
+};
+
 
 class Logger
 {
@@ -13,32 +62,35 @@ class Logger
     std::condition_variable condVar;
     std::queue<std::string> messagesQueue;
     std::thread loggingThread;//background process launcher
-    std::atomic_bool exit = false;//safety condition
+    bool exit = false;//safety condition
+
     void processEntries()//the background process
     {
-        // Open log file.
-        std::ofstream logFile("log.txt");
-        if (logFile.fail()) {
-            std::cerr << "Failed to open logfile." << std::endl;
-            return;
-        }
+        std::ofstream logFile = Helper::creatLogFile();
+
 
         // Start processing loop. It process only one message for each iteration
         // to gain more performance
-        while (!exit) {
+
+        while (true) {//The loop will exit only when exit is true
             std::unique_lock lock(queueMutex);
 
-            // Wait for a notification and don't wakeup unless the queue isn't empty.
-            condVar.wait(lock, [this]{return !messagesQueue.empty();});
+            // Wait for a notification and don't wakeup unless the queue isn't empty or the exit is true.
+            condVar.wait(lock, [this]{return !messagesQueue.empty() || exit;});
 
-            //log to the file
-            logFile << messagesQueue.front() << "\n";
-            messagesQueue.pop();
+            //log to the file if there are messages to be logged
+            if(!messagesQueue.empty()) {
+                logFile << messagesQueue.front() << "\n";
+                messagesQueue.pop();
+            }
+            
+            if(exit) break;//The loop will exit only when exit is true
         }
 
         //At the end, if the queue has some messages. here you don't need mutexes
-        // because you have reached the destructor i.e you won't enqueue any messages anymore
-        while(exit && !messagesQueue.empty()){
+        // because you have reached the destructor i.e you won't enqueue any messages
+        // or change exit anymore
+        while(!messagesQueue.empty()){
 
             //log to the file
             logFile << messagesQueue.front() << "\n";
@@ -59,7 +111,7 @@ public:
     //logs the messages to the queue
     void log(std::string_view entry)
     {
-        std::unique_lock lock(queueMutex);
+        std::lock_guard lock(queueMutex);
         messagesQueue.push(std::string(entry));
         condVar.notify_all();
     }
@@ -67,8 +119,14 @@ public:
 
     ~Logger()
     {
-        exit = true;
-        loggingThread.join();
+        if(loggingThread.joinable()){
+            {
+                std::lock_guard lg {queueMutex};
+                exit = true;
+            }
+            condVar.notify_all();
+            loggingThread.join();
+        }
     }
 
 };
