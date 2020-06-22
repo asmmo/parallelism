@@ -1,3 +1,9 @@
+/*
+
+https://codereview.stackexchange.com/questions/244257/c-multithreading-logger-class/244302#244302
+*/
+
+
 #include <thread>
 #include <iostream>
 #include <queue>
