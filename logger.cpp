@@ -17,7 +17,7 @@ struct Helper{
                          "name and Do u have the permission" << std::endl;
             return std::move(creatLogFile());
         }
-        return std::move(logFile);
+        return logFile;
     }
 
     static std::string getFileName(){
